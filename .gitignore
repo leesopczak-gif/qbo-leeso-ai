@@ -1,0 +1,11 @@
+# Dependencies
+/node_modules
+
+# Environment variables
+.env
+
+# Intuit Token Cache
+.oauth-tokens.json
+
+# Log files
+npm-debug.log*
