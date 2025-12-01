@@ -17,23 +17,10 @@ var oauthClient = new OAuthClient({
     redirectUri: process.env.QBO_REDIRECT_URI,
 });
 
-// --- 2. POSTGRESQL CLIENT SETUP ---
-// Configure PostgreSQL Client using .env variables
+// Configure PostgreSQL Client using the single DATABASE_URL variable
 const dbClient = new Client({
-    user: process.env.DB_USER,
-    host: process.env.DB_HOST,
-    database: process.env.DB_DATABASE,
-    password: process.env.DB_PASSWORD,
-    port: process.env.DB_PORT,
-    ssl: {
-        rejectUnauthorized: false // Required for some cloud hosts like Render to connect to PostgreSQL
-    }
+    connectionString: process.env.DATABASE_URL,
 });
-
-// Connect to the database
-dbClient.connect()
-    .then(() => console.log('Database connected successfully!'))
-    .catch(err => console.error('Database connection error', err.stack));
 
 // --- 3. ROOT ROUTE (FIXED) ---
 // Basic test route confirms QBO client is loaded
