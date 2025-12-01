@@ -13,19 +13,24 @@ const port = process.env.PORT || 3000;
 var oauthClient = new OAuthClient({
     clientId: process.env.QBO_CLIENT_ID,
     clientSecret: process.env.QBO_CLIENT_SECRET,
-    environment: 'sandbox', // <-- FIXED: Explicitly set to 'sandbox'
+    environment: 'sandbox', // FIXED: Explicitly set to 'sandbox'
     redirectUri: process.env.QBO_REDIRECT_URI,
 });
 
-// Configure PostgreSQL Client using the single DATABASE_URL variable
+// --- 2. POSTGRESQL CLIENT SETUP (FIXED FOR RENDER) ---
+// Configured to use the single DATABASE_URL variable from Render
 const dbClient = new Client({
-    connectionString: process.env.DATABASE_URL,
+    connectionString: process.env.DATABASE_URL, // Uses the URL copied from Render
 });
+
+// Connect to the database
+dbClient.connect()
+    .then(() => console.log('Database connected successfully!'))
+    .catch(err => console.error('Database connection error', err.stack));
 
 // --- 3. ROOT ROUTE (FIXED) ---
 // Basic test route confirms QBO client is loaded
 app.get('/', (req, res) => {
-    // The display is now hardcoded to 'sandbox' to match the oauthClient fix
     res.send(`QBO Client Initialized. Environment: <strong>sandbox</strong>
         <p><a href="/connect">Click here to Connect to QuickBooks</a></p>`);
 });
@@ -72,7 +77,7 @@ app.get('/callback', (req, res) => {
         });
 });
 
-// --- 6. API CALL HELPER FUNCTION ---
+// --- 6. API CALL HELPER FUNCTION (FIXED TIMEOUT) ---
 function makeApiCall(req, res) {
     const realmId = oauthClient.token.realmId;
     // URL to get CompanyInfo for the authorized QuickBooks company
@@ -81,8 +86,9 @@ function makeApiCall(req, res) {
     // Make the secure API call using the current access token
     oauthClient.makeApiCall({
         url: url,
-        timeout: 60000 // Added: Set timeout to 60 seconds (60000 ms)
+        timeout: 60000 // FIX: Increased timeout to 60 seconds (60000 ms)
     })
+        .then((response) => {
             const data = JSON.parse(response.body);
             const companyName = data.CompanyInfo.CompanyName;
             res.send(`<h1>API Call Success!</h1><p>Tokens saved to cloud database and API connection verified.</p><p>Connected to QBO Company: <strong>${companyName}</strong></p>`);
