@@ -1,7 +1,7 @@
 const express = require('express');
 const dotenv = require('dotenv');
-const OAuthClient = require('intuit-oauth'); // New: Import the QBO Library
-const { Client } = require('pg'); // New: Import the PostgreSQL Client
+const OAuthClient = require('intuit-oauth');
+const { Client } = require('pg');
 
 // Load environment variables from .env file
 dotenv.config();
@@ -9,14 +9,15 @@ dotenv.config();
 const app = express();
 const port = process.env.PORT || 3000;
 
-// Initialize the Intuit OAuth Client using secure environment variables
-const oauthClient = new OAuthClient({
-    clientId: process.env.CLIENT_ID,
-    clientSecret: process.env.CLIENT_SECRET,
-    environment: process.env.ENVIRONMENT,
-    redirectUri: process.env.REDIRECT_URI,
+// --- 1. QBO OAUTH CLIENT SETUP (FIXED) ---
+var oauthClient = new OAuthClient({
+    clientId: process.env.QBO_CLIENT_ID,
+    clientSecret: process.env.QBO_CLIENT_SECRET,
+    environment: 'sandbox', // <-- FIXED: Explicitly set to 'sandbox'
+    redirectUri: process.env.QBO_REDIRECT_URI,
 });
 
+// --- 2. POSTGRESQL CLIENT SETUP ---
 // Configure PostgreSQL Client using .env variables
 const dbClient = new Client({
     user: process.env.DB_USER,
@@ -24,6 +25,9 @@ const dbClient = new Client({
     database: process.env.DB_DATABASE,
     password: process.env.DB_PASSWORD,
     port: process.env.DB_PORT,
+    ssl: {
+        rejectUnauthorized: false // Required for some cloud hosts like Render to connect to PostgreSQL
+    }
 });
 
 // Connect to the database
@@ -31,24 +35,25 @@ dbClient.connect()
     .then(() => console.log('Database connected successfully!'))
     .catch(err => console.error('Database connection error', err.stack));
 
-// Basic test route remains, but now confirms config is loaded
+// --- 3. ROOT ROUTE (FIXED) ---
+// Basic test route confirms QBO client is loaded
 app.get('/', (req, res) => {
-    // We read the environment variable to confirm the keys are loaded
-    res.send(`QBO Client Initialized. Environment: ${process.env.ENVIRONMENT}`);
+    // The display is now hardcoded to 'sandbox' to match the oauthClient fix
+    res.send(`QBO Client Initialized. Environment: <strong>sandbox</strong>
+        <p><a href="/connect">Click here to Connect to QuickBooks</a></p>`);
 });
 
-// --- 1. CONNECT ROUTE ---
-// The user clicks a button that directs them to this route.
+// --- 4. CONNECT ROUTE ---
 app.get('/connect', (req, res) => {
     // Generate the URL to redirect the user to Intuit for authorization
     const authUri = oauthClient.authorizeUri({
         scope: [OAuthClient.scopes.Accounting, OAuthClient.scopes.OpenId],
-        state: 'security_state_token', // Required security token
+        state: 'security_state_token',
     });
     res.redirect(authUri);
 });
 
-// --- 2. CALLBACK ROUTE (Saves to Database) ---
+// --- 5. CALLBACK ROUTE (SAVES TO DB) ---
 app.get('/callback', (req, res) => {
     oauthClient.createToken(req.url)
         .then((authResponse) => {
@@ -71,19 +76,19 @@ app.get('/callback', (req, res) => {
                 })
                 .catch((err) => {
                     console.error('Database INSERT Error:', err.stack);
-                    res.status(500).send('Error saving tokens to database.');
+                    res.status(500).send('Error saving tokens to database. Check DB table structure/credentials.');
                 });
         })
         .catch((e) => {
             console.error('Token Exchange Error:', e.originalMessage);
-            res.status(500).send('Error connecting to QuickBooks.');
+            res.status(500).send('Error connecting to QuickBooks. Check Client/Secret/URI.');
         });
 });
 
-// --- 3. (DELETED) The separate /test route is no longer needed.
-// Helper function to make the actual QBO API call
+// --- 6. API CALL HELPER FUNCTION ---
 function makeApiCall(req, res) {
     const realmId = oauthClient.token.realmId;
+    // URL to get CompanyInfo for the authorized QuickBooks company
     const url = `${oauthClient.baseUrl}v3/company/${realmId}/companyinfo/${realmId}`;
 
     // Make the secure API call using the current access token
@@ -91,11 +96,11 @@ function makeApiCall(req, res) {
         .then((response) => {
             const data = JSON.parse(response.body);
             const companyName = data.CompanyInfo.CompanyName;
-            res.send(`<h1>API Call Success!</h1><p>Connected to QBO Company: <strong>${companyName}</strong></p>`);
+            res.send(`<h1>API Call Success!</h1><p>Tokens saved to cloud database and API connection verified.</p><p>Connected to QBO Company: <strong>${companyName}</strong></p>`);
         })
         .catch((e) => {
             console.error('API Call Error:', e.originalMessage);
-            res.status(500).send('Error retrieving data after refresh attempt.');
+            res.status(500).send('Error retrieving data after refresh attempt. Check QBO scope permissions.');
         });
 }
 
