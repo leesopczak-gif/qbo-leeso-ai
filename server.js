@@ -79,8 +79,10 @@ function makeApiCall(req, res) {
     const url = `${oauthClient.baseUrl}v3/company/${realmId}/companyinfo/${realmId}`;
 
     // Make the secure API call using the current access token
-    oauthClient.makeApiCall({ url })
-        .then((response) => {
+    oauthClient.makeApiCall({
+        url: url,
+        timeout: 60000 // Added: Set timeout to 60 seconds (60000 ms)
+    })
             const data = JSON.parse(response.body);
             const companyName = data.CompanyInfo.CompanyName;
             res.send(`<h1>API Call Success!</h1><p>Tokens saved to cloud database and API connection verified.</p><p>Connected to QBO Company: <strong>${companyName}</strong></p>`);
