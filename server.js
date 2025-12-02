@@ -10,6 +10,7 @@ const app = express();
 const port = process.env.PORT || 3000;
 
 // --- 1. QBO OAUTH CLIENT SETUP (FIXED) ---
+app.set('trust proxy', true);
 var oauthClient = new OAuthClient({
     clientId: process.env.QBO_CLIENT_ID,
     clientSecret: process.env.QBO_CLIENT_SECRET,
